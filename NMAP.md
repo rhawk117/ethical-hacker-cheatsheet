@@ -27,16 +27,17 @@ All templates assume you've set `TARGET=<ip-or-cidr>` and are running as root. `
 
 **Stage 1   Initial Probe**
 ```bash
-nmap -sS -Pn -T2 --max-retries 1 --min-rate 50 --max-rate 150 \
-  -p 22,23,53,80,443,554,1883,5000,5353,8080,8443,8883,9999,49152 \
+nmap -n -Pn -sS -T2 --max-retries 1 --min-rate 50 --max-rate 150 \
+  -p 21,22,23,53,80,443,554,1883,5000,5683,7547,8080,8443,8883,9999,37777,49152 \
   -f --data-length 24 -g 53 \
   -oA iot_stage1 $TARGET
 ```
 
 **Stage 2   Extensive Enumeration**
 ```bash
-nmap -sS -sU -Pn -T2 --max-retries 2 \
-  -p T:21,22,23,80,443,554,1883,5000,5683,7547,8080,8443,8883,9999,37777,49152-49157,U:53,67,123,161,1900,5353,5683 \
+nmap -n -Pn -sS -sU -T2 --max-retries 2 \
+  -p T:21,22,23,80,443,554,1883,5000,5683,7547,8080,8443,8883,9999,18884,37777,49152-49157 \
+  -p U:53,67,68,69,123,161,1900,3671,5353,5683 \
   -sV --version-intensity 4 \
   -f --data-length 24 -D RND:5 \
   -oA iot_stage2 $TARGET
@@ -44,12 +45,12 @@ nmap -sS -sU -Pn -T2 --max-retries 2 \
 
 **Stage 3   Vulnerability & Metadata**
 ```bash
-nmap -sS -sU -Pn -T2 \
-  -p T:23,80,443,554,1883,7547,8883,37777,49152,U:161,1900,5353,5683 \
+nmap -n -Pn -sS -sU -T2 \
+  -p T:23,80,443,554,1883,7547,8080,8443,8883,37777,49152 \
+  -p U:69,161,1900,3671,5353,5683 \
   -sV -O --osscan-limit \
-  --script "(default or discovery or vuln) and not (brute or dos or intrusive)" \
-  --script "upnp-info,broadcast-upnp-info,mqtt-subscribe,coap-resources,rtsp-url-brute,snmp-info,snmp-sysdescr,ssl-cert,ssl-enum-ciphers,http-default-accounts,http-title,realtek-backdoor" \
-  --script-args "mqtt-subscribe.topic=#" \
+  --script "upnp-info,broadcast-upnp-info,dns-service-discovery,broadcast-dns-service-discovery,mqtt-subscribe,coap-resources,rtsp-url-brute,snmp-info,snmp-sysdescr,snmp-interfaces,snmp-netstat,tftp-enum,tftp-version,bacnet-info,knx-gateway-info,knx-gateway-discover,modbus-discover,ssl-cert,ssl-enum-ciphers,http-default-accounts,http-auth-finder,http-title,http-headers,http-enum,banner" \
+  --script-args "mqtt-subscribe.topic=#,mqtt-subscribe.listen-time=5s,mqtt-subscribe.listen-msgs=25" \
   -oA iot_stage3 $TARGET
 ```
 
@@ -71,10 +72,11 @@ nmap -sS -Pn -T3 --min-rate 300 \
 
 **Stage 2   Extensive Enumeration**
 ```bash
-nmap -sS -Pn -T3 --max-retries 2 \
-  -p 80,280,443,591,593,832,981,1010,1311,2082,2087,2095,2096,2480,3000,3128,3333,4243,4567,4711,4712,4993,5000,5104,5108,5800,6543,7000,7396,7474,8000,8001,8008,8014,8042,8069,8080-8090,8181,8222,8243,8280,8281,8333,8443,8500,8834,8880,8888,8983,9000,9043,9060,9080,9090,9091,9200,9443,9800,9981,12443,16080,18091,18092,20720,28017 \
+nmap -n -Pn -sS -T3 --max-retries 2 \
+  -p 80,81,88,280,443,4443,591,593,800,832,981,1010,1080,1311,2082,2083,2086,2087,2095,2096,2480,3000,3001,3128,3333,4000,4243,4567,4711,4712,4848,4993,5000,5001,5104,5108,5601,5800,5984,6543,7000,7001,7396,7443,7474,8000,8001,8008,8009,8014,8020,8042,8069,8080-8091,8161,8181,8200,8222,8243,8280,8281,8333,8443,8500,8600,8834,8880,8888,8889,8983,9000-9091,9200,9443,9444,9800,9981,9998,9999,10000,12443,15672,16080,18091,18092,20720,28017 \
   -sV --version-intensity 7 \
   -D RND:8 --data-length 32 \
+  --reason \
   -oA web_stage2 $TARGET
 ```
 
@@ -82,9 +84,10 @@ Includes Tomcat, JBoss, Jenkins, Elasticsearch, CouchDB, Mongo admin, cPanel, Pl
 
 **Stage 3   Vulnerability & Metadata**
 ```bash
-nmap -sS -Pn -T3 -p 80,443,8000,8080,8443,8888,9200 \
+nmap -n -Pn -sS -T3 \
+  -p 80,81,443,4443,4848,5000,5601,5984,7001,7443,8000,8008,8080,8081,8088,8090,8161,8200,8443,8500,8834,8888,8983,9000,9043,9080,9090,9091,9200,9443,10000,15672 \
   -sV -sC \
-  --script "http-enum,http-headers,http-methods,http-title,http-server-header,http-robots.txt,http-sitemap-generator,http-security-headers,http-cors,http-cookie-flags,http-trace,http-shellshock,http-slowloris-check,http-vuln-*,http-wordpress-enum,http-wordpress-users,http-drupal-enum,http-git,http-config-backup,http-backup-finder,http-php-version,http-default-accounts,http-auth-finder,ssl-cert,ssl-enum-ciphers,ssl-heartbleed,ssl-poodle,ssl-ccs-injection,ssl-dh-params,tls-alpn,tls-nextprotoneg,http-jsonp-detection,http-open-redirect" \
+  --script "http-enum,http-headers,http-methods,http-title,http-server-header,http-robots.txt,http-security-headers,http-cors,http-cookie-flags,http-trace,http-git,http-gitweb-projects-enum,http-config-backup,http-backup-finder,http-auth-finder,http-default-accounts,http-open-redirect,http-jsonp-detection,http-php-version,http-wordpress-enum,http-wordpress-users,http-drupal-enum,http-drupal-enum-users,ssl-cert,ssl-enum-ciphers,ssl-heartbleed,ssl-poodle,ssl-ccs-injection,ssl-dh-params,tls-alpn,tls-nextprotoneg,banner" \
   --script-args "http.useragent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36,http-methods.test-all" \
   -oA web_stage3 $TARGET
 ```
@@ -99,32 +102,43 @@ The custom UA defeats lazy User-Agent blocking. `http-enum` alone hits hundreds 
 
 **Stage 1  Initial Probe**
 ```bash
-nmap -sS -Pn -T2 --max-retries 1 --min-rate 100 \
-  -p 22,23,53,80,179,443,830,2000,4786,5060,7547,8080,8291,8443 \
+nmap -n -Pn -sS -T2 --max-retries 1 --min-rate 100 \
+  -p 22,23,53,80,161,179,443,500,7547,8080,8291,8443,8728,8729,32764 \
   -f -g 53 --data-length 24 \
-  -oA router_stage1 $TARGET
+  -oA router_stage1 \
+  $TARGET
 ```
 
 **Stage 2   Extensive Enumeration**
 ```bash
-nmap -sS -sU -Pn -T2 --max-retries 2 \
-  -p T:22,23,53,80,88,179,443,514,515,623,636,830,1080,1723,2000,2601,2604,3128,3389,4786,5060,5353,6666,7547,8000,8080,8181,8291,8443,8728,8729,9100,10000,32764,U:53,67,68,69,123,161,162,500,514,520,623,1701,1900,4500,5060 \
+nmap -n -Pn -sS -sU -T2 --max-retries 2 \
+  -p T:22,23,53,80,179,443,514,515,623,830,1723,2000,2601,2604,3128,4786,5060,6666,7547,8000,8080,8181,8291,8443,8728,8729,9100,10000,32764 \
+  -p U:53,67,68,69,123,161,162,500,514,520,623,1701,1900,4500,5060 \
   -sV --version-intensity 6 \
   -O --osscan-guess \
   -f -D RND:6 -g 53 \
-  -oA router_stage2 $TARGET
+  -oA router_stage2 \
+  $TARGET
+
+# (optional)
+nmap -n -Pn -sU -p 1900 \
+  --script=broadcast-upnp-info \
+  -f -g 53 --data-length 24 \
+  -oA router_upnp_broadcast
 ```
 
 Adds IPMI (623), routing daemons (Quagga/FRR 2601/2604), IKE/IPsec, RIP, syslog, TFTP, the Netgear backdoor (32764), Mikrotik API.
 
 **Stage 3   Vulnerability & Metadata**
 ```bash
-nmap -sS -sU -Pn -T2 \
-  -p T:22,23,80,443,161,4786,7547,8291,U:161,623,500 \
+nmap -n -Pn -sS -sU -T2 \
+  -p T:22,23,80,443,7547,8080,8291,8443,8728,8729,32764 \
+  -p U:69,161,1900,500,623 \
   -sV -O \
-  --script "snmp-info,snmp-sysdescr,snmp-interfaces,snmp-netstat,snmp-processes,snmp-brute,snmp-hh3c-logins,ssh2-enum-algos,ssh-auth-methods,ssh-hostkey,telnet-encryption,http-default-accounts,http-auth-finder,http-title,http-vuln-cve2014-3704,ssl-cert,ike-version,ipmi-version,ipmi-cipher-zero,tftp-enum,cisco-siet,mikrotik-routeros-brute" \
+  --script "snmp-info,snmp-sysdescr,snmp-interfaces,snmp-netstat,snmp-processes,snmp-hh3c-logins,snmp-brute,snmp-ios-config,ssh2-enum-algos,ssh-auth-methods,ssh-hostkey,telnet-encryption,http-default-accounts,http-auth-finder,http-title,http-headers,http-enum,http-dlink-backdoor,http-vuln-misfortune-cookie,http-vuln-wnr1000-creds,ssl-cert,ike-version,ipmi-version,ipmi-cipher-zero,tftp-enum,tftp-version,upnp-info,mikrotik-routeros-brute,ubiquiti-discovery,banner" \
   --script-args "snmpcommunity=public,snmp-brute.communitiesdb=/usr/share/seclists/Discovery/SNMP/common-snmp-community-strings.txt" \
-  -oA router_stage3 $TARGET
+  -oA router_stage3 \
+  $TARGET
 ```
 
 `ipmi-cipher-zero` finds the IPMI 2.0 auth bypass still present on a startling amount of server BMCs and out-of-band management cards.
@@ -137,10 +151,17 @@ nmap -sS -sU -Pn -T2 \
 
 **Stage 1   Initial Probe**
 ```bash
-nmap -sS -Pn -T2 --max-retries 1 --min-rate 50 \
-  -p 62078,5353,7000,49152,3689,5223,8009,5000 \
-  -f -g 5353 --data-length 24 \
-  -oA ios_stage1 $TARGET
+nmap -n -Pn -sS -sU \
+    -p T:62078,7000,7001,7100,3689,5000,49152-49160 \
+    -p U:5353 \
+    -sV --version-intensity 2 \
+    --reason \
+    -oA ios_triage $TARGET
+
+# DNS SD
+nmap -n -Pn -sU -p 5353 \
+    --script=dns-service-discovery,broadcast-dns-service-discovery \
+    -oA ios_dnssd_target $TARGET
 ```
 
 **Stage 2   Extensive Enumeration**
@@ -150,6 +171,13 @@ nmap -sS -sU -Pn -T2 --max-retries 2 \
   -sV --version-intensity 3 \
   -f --data-length 24 -D RND:4 \
   -oA ios_stage2 $TARGET
+
+nmap -n -Pn -sS -p 3689 \
+  -sV \
+  --script=daap-get-library \
+  --script-args daap_item_limit=25 \
+  -oA ios_stage3_daap \
+  $TARGET
 ```
 
 **Stage 3   Metadata & Service Discovery**
@@ -210,28 +238,38 @@ For domain controllers specifically, add `--script "ldap-search,dns-srv-enum"` a
 
 **Stage 1   Initial Probe**
 ```bash
-nmap -sS -Pn -T3 --min-rate 150 \
-  -p 22,88,445,548,631,5000,5353,5900,7000,49152,62078 \
-  -g 5353 --data-length 16 \
-  -oA mac_stage1 $TARGET
+nmap -n -Pn -sS -sU -T3 --max-retries 1 \
+  -p T:22,445,548,631,5900,3689,5000,7000,7001,7100,62078 \
+  -p U:5353 \
+  -sV --version-intensity 2 \
+  --reason \
+  -oA mac_stage1 \
+  $TARGET
 ```
 
 **Stage 2   Extensive Enumeration**
 ```bash
-nmap -sS -sU -Pn -T3 --max-retries 2 \
-  -p T:22,80,88,111,443,445,515,548,631,3283,3689,4488,5000,5009,5222,5223,5269,5298,5353,5900,5988,6942,7000,8021,8080,8443,49152-49156,62078,U:53,67,88,111,123,137,138,514,5353,5355 \
-  -sV --version-intensity 6 \
-  -O --osscan-guess \
-  -D RND:4 --data-length 24 \
-  -oA mac_stage2 $TARGET
+nmap -n -Pn -sS -sU -T3 --max-retries 2  --reason \
+  -p T:22,445,548,631,5900,3689,5000,7000,7001,7100,62078 \
+  -p U:5353 \
+  -sV --version-all \
+  --script=ssh2-enum-algos,ssh-auth-methods,ssh-hostkey,\
+    smb-os-discovery,smb2-security-mode,smb-protocols, \
+    afp-serverinfo,afp-showmount,cups-info,cups-queue-info, \
+    vnc-info,dns-service-discovery,banner \
+  -oA mac_stage2 \
+  $TARGET
 ```
 
 **Stage 3   Metadata & Vulnerability**
 ```bash
-nmap -sS -sU -Pn -T3 -p T:22,445,548,631,5900,7000,U:5353 \
-  -sV -O \
-  --script "ssh2-enum-algos,ssh-auth-methods,ssh-hostkey,smb-os-discovery,smb2-security-mode,smb-protocols,afp-serverinfo,afp-showmount,cups-info,cups-queue-info,vnc-info,realvnc-auth-bypass,dns-service-discovery,airplay-info,ssl-cert,banner" \
-  -oA mac_stage3 $TARGET
+nmap -n -Pn -sS -T3 \
+  -p 548,5900 \
+  -sV \
+  --script=afp-serverinfo,afp-showmount,vnc-info,afp-path-vuln,realvnc-auth-bypass \
+  --reason \
+  -oA mac_stage3 \
+  $TARGET
 ```
 
 `afp-serverinfo` returns the model identifier (e.g. `MacBookPro18,3`), macOS version, and machine signature. `dns-service-discovery` over mDNS pulls advertised services with rich metadata.
